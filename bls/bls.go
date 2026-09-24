@@ -11,31 +11,54 @@ import (
 const DST = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_"
 
 var (
-	ErrNilInput    = errors.New("bls: nil input")
-	ErrEmptyInput  = errors.New("bls: empty input")
-	ErrZeroKey     = errors.New("bls: zero secret key")
-	ErrLenMismatch = errors.New("bls: pubkeys and messages length mismatch")
+	ErrNilInput          = errors.New("bls: nil input")
+	ErrEmptyInput        = errors.New("bls: empty input")
+	ErrZeroKey           = errors.New("bls: zero secret key")
+	ErrLenMismatch       = errors.New("bls: pubkeys and messages length mismatch")
+	ErrTrailingBytes     = errors.New("bls: trailing bytes after encoded point")
+	ErrNonCanonicalInfin = errors.New("bls: point at infinity encoded with a non-infinity header")
+	ErrInfinityPubkey    = errors.New("bls: infinity point is not a valid public key")
+	ErrInvalidLength     = errors.New("bls: encoded point has wrong length for its compressed form")
 )
+
+const infinityFlag = 0x40
 
 type PublicKey struct{ p bls12381.G1Affine }
 type Signature struct{ p bls12381.G2Affine }
 type SecretKey struct{ s fr.Element }
 
-// PublicKeyFromBytes deserializes a compressed G1 point (with subgroup check).
-// The identity point is accepted here; use KeyValidate to reject it.
 func PublicKeyFromBytes(b []byte) (*PublicKey, error) {
+	if len(b) != bls12381.SizeOfG1AffineCompressed {
+		return nil, ErrInvalidLength
+	}
 	var pk bls12381.G1Affine
-	if _, err := pk.SetBytes(b); err != nil {
+	n, err := pk.SetBytes(b)
+	if err != nil {
 		return nil, err
+	}
+	if n != len(b) {
+		return nil, ErrTrailingBytes
+	}
+	if pk.IsInfinity() && b[0]&infinityFlag == 0 {
+		return nil, ErrNonCanonicalInfin
 	}
 	return &PublicKey{p: pk}, nil
 }
 
-// SignatureFromBytes deserializes a compressed G2 point (with subgroup check).
 func SignatureFromBytes(b []byte) (*Signature, error) {
+	if len(b) != bls12381.SizeOfG2AffineCompressed {
+		return nil, ErrInvalidLength
+	}
 	var sig bls12381.G2Affine
-	if _, err := sig.SetBytes(b); err != nil {
+	n, err := sig.SetBytes(b)
+	if err != nil {
 		return nil, err
+	}
+	if n != len(b) {
+		return nil, ErrTrailingBytes
+	}
+	if sig.IsInfinity() && b[0]&infinityFlag == 0 {
+		return nil, ErrNonCanonicalInfin
 	}
 	return &Signature{p: sig}, nil
 }
@@ -57,9 +80,15 @@ func (sig *Signature) Bytes() [bls12381.SizeOfG2AffineCompressed]byte { return s
 
 // KeyValidate reports whether b encodes a valid public key:
 // a well-formed point in the G1 subgroup that is not the identity.
-func KeyValidate(b []byte) bool {
+func KeyValidate(b []byte) (bool, error) {
 	pk, err := PublicKeyFromBytes(b)
-	return err == nil && !pk.p.IsInfinity()
+	if err != nil {
+		return false, err
+	}
+	if pk.p.IsInfinity() {
+		return false, ErrInfinityPubkey
+	}
+	return true, nil
 }
 
 func (sk *SecretKey) PublicKey() *PublicKey {
@@ -186,7 +215,7 @@ func FastAggregateVerify(pks []*PublicKey, msg []byte, sig *Signature) (bool, er
 }
 
 // EthFastAggregateVerify is the Ethereum consensus-spec variant: an empty
-// pubkey set is valid iff the signature is the point at infinity.
+// pubkey set is valid if the signature is the point at infinity.
 func EthFastAggregateVerify(pks []*PublicKey, msg []byte, sig *Signature) (bool, error) {
 	if sig == nil {
 		return false, nil

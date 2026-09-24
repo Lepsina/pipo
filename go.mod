@@ -4,6 +4,7 @@ go 1.25.7
 
 require (
 	github.com/consensys/gnark-crypto v0.21.0
+	github.com/supranational/blst v0.3.17
 	gopkg.in/yaml.v3 v3.0.1
 )
 

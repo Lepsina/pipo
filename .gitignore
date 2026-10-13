@@ -1,1 +1,6 @@
-testdata/
+# Spec test vectors: hundreds of megabytes, downloaded by `make spectests`
+# at the version pinned in the Makefile.
+/spectests/
+
+# Local notes.
+.*

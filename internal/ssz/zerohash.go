@@ -7,7 +7,7 @@ var zeroHashes = computeZeroHashes(64)
 func computeZeroHashes(n int) [][32]byte {
 	hashes := make([][32]byte, n)
 	for i := 1; i < n; i++ {
-		hashes[i] = hash(hashes[i-1][:], hashes[i-1][:])
+		hashes[i] = hash(hashes[i-1], hashes[i-1])
 	}
 	return hashes
 }

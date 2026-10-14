@@ -36,7 +36,7 @@ func TestZeroHashMatchesIndependentSHA256Reference(t *testing.T) {
 func TestZeroHashIsRecursive(t *testing.T) {
 	for depth := uint8(1); depth < 5; depth++ {
 		prev := zeroHash(depth - 1)
-		want := hash(prev[:], prev[:])
+		want := hash(prev, prev)
 		got := zeroHash(depth)
 		if got != want {
 			t.Fatalf("zeroHash(%d) should be hash(zeroHash(%d), zeroHash(%d))", depth, depth-1, depth-1)

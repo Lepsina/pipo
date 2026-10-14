@@ -34,7 +34,7 @@ func TestMerklizeTwoChunks(t *testing.T) {
 	c0[0], c1[0] = 1, 2
 
 	got := merklize([][32]byte{c0, c1}, 2)
-	want := hash(c0[:], c1[:])
+	want := hash(c0, c1)
 	if got != want {
 		t.Fatalf("got %x, want %x", got, want)
 	}
@@ -48,8 +48,8 @@ func TestMerklizeOneRealChunkPaddedToLimitFour(t *testing.T) {
 
 	z0 := zeroHash(0)
 	z1 := zeroHash(1)
-	top := hash(l0[:], z0[:])
-	want := hash(top[:], z1[:])
+	top := hash(l0, z0)
+	want := hash(top, z1)
 
 	if got != want {
 		t.Fatalf("got %x, want %x", got, want)
@@ -62,12 +62,12 @@ func TestMerklizeOddLeftoverUsesZeroHashNotRealPadding(t *testing.T) {
 
 	got := merklize([][32]byte{c0, c1, c2}, 8)
 
-	pair01 := hash(c0[:], c1[:])
+	pair01 := hash(c0, c1)
 	z0 := zeroHash(0)
-	pair2 := hash(c2[:], z0[:])
-	level1 := hash(pair01[:], pair2[:])
+	pair2 := hash(c2, z0)
+	level1 := hash(pair01, pair2)
 	z2 := zeroHash(2)
-	want := hash(level1[:], z2[:])
+	want := hash(level1, z2)
 
 	if got != want {
 		t.Fatalf("got %x, want %x", got, want)
@@ -93,7 +93,7 @@ func TestMixInLengthMatchesHandComputedReference(t *testing.T) {
 	var lengthChunk [32]byte
 	binary.LittleEndian.PutUint64(lengthChunk[:8], length)
 
-	want := hash(root[:], lengthChunk[:])
+	want := hash(root, lengthChunk)
 	got := mixInLength(root, length)
 
 	if got != want {
@@ -106,7 +106,7 @@ func TestMixInLengthZero(t *testing.T) {
 	root[0] = 0x01
 
 	var zeroLengthChunk [32]byte
-	want := hash(root[:], zeroLengthChunk[:])
+	want := hash(root, zeroLengthChunk)
 	got := mixInLength(root, 0)
 
 	if got != want {

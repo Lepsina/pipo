@@ -34,7 +34,7 @@ func merklize(chunks [][32]byte, limit uint64) [32]byte {
 			} else {
 				right = zeroHash(level)
 			}
-			next[i/2] = hash(left[:], right[:])
+			next[i/2] = hash(left, right)
 		}
 		nodes = next
 	}
@@ -44,5 +44,5 @@ func merklize(chunks [][32]byte, limit uint64) [32]byte {
 func mixInLength(root [32]byte, length uint64) [32]byte {
 	var lengthChunk [32]byte
 	binary.LittleEndian.PutUint64(lengthChunk[:8], length)
-	return hash(root[:], lengthChunk[:])
+	return hash(root, lengthChunk)
 }

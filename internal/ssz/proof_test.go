@@ -10,10 +10,10 @@ func TestVerifyMerkleBranchDepthTwoAllIndexOrders(t *testing.T) {
 		index uint64
 		want  [32]byte
 	}{
-		{0, hashLevel(hash(leaf[:], s0[:]), s1)},
-		{1, hashLevel(hash(s0[:], leaf[:]), s1)},
-		{2, hashLevelSwap(hash(leaf[:], s0[:]), s1)},
-		{3, hashLevelSwap(hash(s0[:], leaf[:]), s1)},
+		{0, hashLevel(hash(leaf, s0), s1)},
+		{1, hashLevel(hash(s0, leaf), s1)},
+		{2, hashLevelSwap(hash(leaf, s0), s1)},
+		{3, hashLevelSwap(hash(s0, leaf), s1)},
 	}
 
 	for _, c := range cases {
@@ -28,11 +28,11 @@ func TestVerifyMerkleBranchDepthTwoAllIndexOrders(t *testing.T) {
 }
 
 func hashLevel(prevValue [32]byte, sibling [32]byte) [32]byte {
-	return hash(prevValue[:], sibling[:])
+	return hash(prevValue, sibling)
 }
 
 func hashLevelSwap(prevValue [32]byte, sibling [32]byte) [32]byte {
-	return hash(sibling[:], prevValue[:])
+	return hash(sibling, prevValue)
 }
 
 func TestVerifyMerkleBranchWrongRootFails(t *testing.T) {

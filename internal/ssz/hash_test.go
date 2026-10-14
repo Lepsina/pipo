@@ -6,11 +6,12 @@ import (
 )
 
 func TestHashMatchesSHA256(t *testing.T) {
-	a := []byte{1, 2, 3}
-	b := []byte{4, 5, 6}
+	var a, b [32]byte
+	a[0], a[1], a[2] = 1, 2, 3
+	b[0], b[1], b[2] = 4, 5, 6
 
 	got := hash(a, b)
-	want := sha256.Sum256(append(append([]byte{}, a...), b...))
+	want := sha256.Sum256(append(append([]byte{}, a[:]...), b[:]...))
 
 	if got != want {
 		t.Fatalf("got %x, want %x", got, want)
@@ -18,14 +19,14 @@ func TestHashMatchesSHA256(t *testing.T) {
 }
 
 func TestHashDoesNotMutateInputs(t *testing.T) {
-	a := make([]byte, 3, 10)
+	var a, b [32]byte
 	a[0], a[1], a[2] = 1, 2, 3
-	aCopy := append([]byte{}, a...)
-	b := []byte{4, 5, 6}
+	aCopy := a
+	b[0], b[1], b[2] = 4, 5, 6
 
 	hash(a, b)
 
-	if string(a) != string(aCopy) {
+	if a != aCopy {
 		t.Fatalf("hash mutated its first argument: got %v, want %v", a, aCopy)
 	}
 }

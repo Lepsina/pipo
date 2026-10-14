@@ -7,9 +7,9 @@ func ComputeMerkleRoot(leaf [32]byte, branch [][32]byte, depth uint64, index uin
 	for i := uint64(0); i < depth; i++ {
 		sibling := branch[i]
 		if (index>>i)&1 == 1 {
-			value = hash(sibling[:], value[:])
+			value = hash(sibling, value)
 		} else {
-			value = hash(value[:], sibling[:])
+			value = hash(value, sibling)
 		}
 	}
 	return value

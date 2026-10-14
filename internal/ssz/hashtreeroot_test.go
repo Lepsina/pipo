@@ -40,7 +40,7 @@ func TestBytes48HashTreeRoot(t *testing.T) {
 	var chunk0, chunk1 [32]byte
 	copy(chunk0[:], k[:32])
 	copy(chunk1[:], k[32:48])
-	want := hash(chunk0[:], chunk1[:])
+	want := hash(chunk0, chunk1)
 
 	got := k.HashTreeRoot()
 
@@ -60,10 +60,10 @@ func TestBytes96HashTreeRoot(t *testing.T) {
 	copy(c1[:], s[32:64])
 	copy(c2[:], s[64:96])
 
-	pair01 := hash(c0[:], c1[:])
+	pair01 := hash(c0, c1)
 	z0 := zeroHash(0)
-	pair2 := hash(c2[:], z0[:])
-	want := hash(pair01[:], pair2[:])
+	pair2 := hash(c2, z0)
+	want := hash(pair01, pair2)
 
 	got := s.HashTreeRoot()
 
@@ -129,7 +129,7 @@ func TestHashTreeRootByteVector(t *testing.T) {
 	var c0, c1 [32]byte
 	copy(c0[:], b[:32])
 	copy(c1[:], b[32:64])
-	want := hash(c0[:], c1[:])
+	want := hash(c0, c1)
 
 	got := HashTreeRootByteVector(b)
 

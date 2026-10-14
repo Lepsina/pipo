@@ -41,17 +41,10 @@ func packBasicElements[T any](values []T) [][32]byte {
 	return chunksFromBytes(buf)
 }
 
-func packElements[T any](values []T) [][32]byte {
-	if isBasic[T]() {
-		return packBasicElements(values)
-	}
+func packElements[T HashTreeRooter](values []T) [][32]byte {
 	chunks := make([][32]byte, len(values))
 	for i, v := range values {
-		hr, ok := any(v).(HashTreeRooter)
-		if !ok {
-			panic("ssz: composite element does not implement HashTreeRooter")
-		}
-		chunks[i] = hr.HashTreeRoot()
+		chunks[i] = v.HashTreeRoot()
 	}
 	return chunks
 }

@@ -14,28 +14,28 @@ func HashTreeRootContainer(v any) [32]byte {
 		}
 		chunks[i] = hr.HashTreeRoot()
 	}
-	return merklize(chunks, chunkCountContainer(v))
+	return merklizeInPlace(chunks, chunkCountContainer(v))
 }
 
 func HashTreeRootByteVector(b []byte) [32]byte {
 	chunks := chunksFromBytes(b)
-	return merklize(chunks, uint64(len(chunks)))
+	return merklizeInPlace(chunks, uint64(len(chunks)))
 }
 
 func HashTreeRootVector[T HashTreeRooter](items []T) [32]byte {
 	chunks := packElements(items)
-	return merklize(chunks, uint64(len(chunks)))
+	return merklizeInPlace(chunks, uint64(len(chunks)))
 }
 
 func HashTreeRootByteList(b []byte, maxBytes uint64) [32]byte {
 	maxChunks := (maxBytes + chunkSize - 1) / chunkSize
-	root := merklize(chunksFromBytes(b), maxChunks)
+	root := merklizeInPlace(chunksFromBytes(b), maxChunks)
 	return mixInLength(root, uint64(len(b)))
 }
 
 func hashTreeRootUint64(v uint64) [32]byte {
 	chunks := packBasicElements([]uint64{v})
-	return merklize(chunks, uint64(len(chunks)))
+	return merklizeInPlace(chunks, uint64(len(chunks)))
 }
 
 func (v Uint64) HashTreeRoot() [32]byte {

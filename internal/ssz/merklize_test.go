@@ -84,6 +84,43 @@ func TestMerklizePanicsWhenCountExceedsLimit(t *testing.T) {
 	merklize([][32]byte{c0, c1}, 1)
 }
 
+func TestMerklizeDoesNotMutateInput(t *testing.T) {
+	var c0, c1 [32]byte
+	c0[0], c1[0] = 1, 2
+	chunks := [2][32]byte{c0, c1}
+	original := chunks
+
+	merklize(chunks[:], 2)
+
+	if chunks != original {
+		t.Fatalf("merklize mutated its input: got %x, want %x", chunks, original)
+	}
+}
+
+func TestMerklizeInPlaceMatchesMerklize(t *testing.T) {
+	var c0, c1, c2 [32]byte
+	c0[0], c1[0], c2[0] = 1, 2, 3
+
+	want := merklize([][32]byte{c0, c1, c2}, 8)
+	got := merklizeInPlace([][32]byte{c0, c1, c2}, 8)
+
+	if got != want {
+		t.Fatalf("got %x, want %x", got, want)
+	}
+}
+
+func TestMerklizeInPlaceMutatesInput(t *testing.T) {
+	var c0, c1 [32]byte
+	c0[0], c1[0] = 1, 2
+	chunks := [][32]byte{c0, c1}
+
+	root := merklizeInPlace(chunks, 2)
+
+	if chunks[0] != root {
+		t.Fatalf("merklizeInPlace should overwrite chunks[0] with the root: got %x, want %x", chunks[0], root)
+	}
+}
+
 func TestMixInLengthMatchesHandComputedReference(t *testing.T) {
 	var root [32]byte
 	root[0] = 0xAB

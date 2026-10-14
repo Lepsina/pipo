@@ -4,16 +4,6 @@ func chunkCountContainer(v any) uint64 {
 	return uint64(structValue(v).NumField())
 }
 
-func isBasic[T any]() bool {
-	var zero T
-	switch any(zero).(type) {
-	case bool, uint8, uint16, uint32, uint64:
-		return true
-	default:
-		return false
-	}
-}
-
 func elementSize[T any]() uint64 {
 	var zero T
 	switch any(zero).(type) {

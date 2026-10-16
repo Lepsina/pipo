@@ -3,6 +3,7 @@ package ssz
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"reflect"
 	"testing"
 )
@@ -32,8 +33,9 @@ func TestUint64Unmarshal(t *testing.T) {
 
 func TestUint64UnmarshalWrongLengthErrors(t *testing.T) {
 	var v Uint64
-	if err := v.Unmarshal([]byte{1, 2, 3}); err == nil {
-		t.Fatal("expected error for wrong-length input")
+	err := v.Unmarshal([]byte{1, 2, 3})
+	if !errors.Is(err, ErrLengthMismatch) {
+		t.Fatalf("got %v, want ErrLengthMismatch", err)
 	}
 }
 
@@ -81,8 +83,9 @@ func TestBytes32MarshalDoesNotAliasCaller(t *testing.T) {
 
 func TestBytes32UnmarshalWrongLengthErrors(t *testing.T) {
 	var r Bytes32
-	if err := r.Unmarshal([]byte{1, 2, 3}); err == nil {
-		t.Fatal("expected error for wrong-length input")
+	err := r.Unmarshal([]byte{1, 2, 3})
+	if !errors.Is(err, ErrLengthMismatch) {
+		t.Fatalf("got %v, want ErrLengthMismatch", err)
 	}
 }
 
@@ -228,8 +231,9 @@ func TestMarshalByteVectorDoesNotAliasCaller(t *testing.T) {
 
 func TestUnmarshalByteVectorWrongLengthErrors(t *testing.T) {
 	dst := make([]byte, 64)
-	if err := UnmarshalByteVector(dst, make([]byte, 63)); err == nil {
-		t.Fatal("expected error for wrong-length input")
+	err := UnmarshalByteVector(dst, make([]byte, 63))
+	if !errors.Is(err, ErrLengthMismatch) {
+		t.Fatalf("got %v, want ErrLengthMismatch", err)
 	}
 }
 
@@ -255,8 +259,9 @@ func TestMarshalUnmarshalVectorRoundTrip(t *testing.T) {
 
 func TestUnmarshalVectorWrongLengthErrors(t *testing.T) {
 	got := make([]Bytes32, 2)
-	if err := UnmarshalVector(got, []byte{1, 2, 3}, 32); err == nil {
-		t.Fatal("expected error for wrong-length input")
+	err := UnmarshalVector(got, []byte{1, 2, 3}, 32)
+	if !errors.Is(err, ErrLengthMismatch) {
+		t.Fatalf("got %v, want ErrLengthMismatch", err)
 	}
 }
 
@@ -305,8 +310,9 @@ func TestUnmarshalByteListAtMaxLengthSucceeds(t *testing.T) {
 }
 
 func TestUnmarshalByteListTooLongErrors(t *testing.T) {
-	if _, err := UnmarshalByteList(make([]byte, 33), 32); err == nil {
-		t.Fatal("expected error for a list longer than its max")
+	_, err := UnmarshalByteList(make([]byte, 33), 32)
+	if !errors.Is(err, ErrListTooLong) {
+		t.Fatalf("got %v, want ErrListTooLong", err)
 	}
 }
 
@@ -391,11 +397,76 @@ func TestUnmarshalContainerBadOffsetErrors(t *testing.T) {
 	c := mixedContainer{A: Bytes32{0x01}, B: testByteList{0xAA}, C: 7}
 	data, _ := MarshalContainer(c)
 
-	// Corrupt the offset to point past the end of the buffer.
+	// Corrupt the first offset so it no longer matches the fixed-part
+	// length.
 	binary.LittleEndian.PutUint32(data[32:36], uint32(len(data)+100))
 
 	var got mixedContainer
-	if err := UnmarshalContainer(&got, data); err == nil {
-		t.Fatal("expected error for out-of-range offset")
+	err := UnmarshalContainer(&got, data)
+	if !errors.Is(err, ErrInvalidOffset) {
+		t.Fatalf("got %v, want ErrInvalidOffset", err)
+	}
+}
+
+func TestUnmarshalContainerTruncatedFixedFieldErrors(t *testing.T) {
+	c := twoFieldContainer{A: Bytes32{0x01}, B: Bytes32{0x02}}
+	data, _ := MarshalContainer(c)
+
+	var got twoFieldContainer
+	// Enough for A (32 bytes) but not for B.
+	err := UnmarshalContainer(&got, data[:40])
+	if !errors.Is(err, ErrTruncated) {
+		t.Fatalf("got %v, want ErrTruncated", err)
+	}
+}
+
+func TestUnmarshalContainerTruncatedOffsetErrors(t *testing.T) {
+	c := mixedContainer{A: Bytes32{0x01}, B: testByteList{0xAA}, C: 7}
+	data, _ := MarshalContainer(c)
+
+	var got mixedContainer
+	// Enough for A (32 bytes) but not for B's 4-byte offset.
+	err := UnmarshalContainer(&got, data[:34])
+	if !errors.Is(err, ErrTruncated) {
+		t.Fatalf("got %v, want ErrTruncated", err)
+	}
+}
+
+func TestUnmarshalContainerAllFixedLengthMismatchErrors(t *testing.T) {
+	c := twoFieldContainer{A: Bytes32{0x01}, B: Bytes32{0x02}}
+	data, _ := MarshalContainer(c)
+	data = append(data, 0x00) // one byte too many, no variable field to absorb it
+
+	var got twoFieldContainer
+	err := UnmarshalContainer(&got, data)
+	if !errors.Is(err, ErrLengthMismatch) {
+		t.Fatalf("got %v, want ErrLengthMismatch", err)
+	}
+}
+
+// twoVariableContainer has two variable-size fields, needed to exercise
+// the offset-table consistency check between fields (as opposed to the
+// first-offset check, which only needs one).
+type twoVariableContainer struct {
+	A testByteList
+	B testByteList
+}
+
+func TestUnmarshalContainerOffsetTableInconsistentErrors(t *testing.T) {
+	c := twoVariableContainer{A: testByteList{0xAA}, B: testByteList{0xBB, 0xCC}}
+	data, err := MarshalContainer(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Fixed part is two 4-byte offsets (8 bytes). Corrupt B's offset so
+	// it comes before A's, making the table internally inconsistent
+	// even though A's own offset still matches the fixed-part length.
+	binary.LittleEndian.PutUint32(data[4:8], 3)
+
+	var got twoVariableContainer
+	err = UnmarshalContainer(&got, data)
+	if !errors.Is(err, ErrInvalidOffset) {
+		t.Fatalf("got %v, want ErrInvalidOffset", err)
 	}
 }

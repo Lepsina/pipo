@@ -131,7 +131,7 @@ func (b Bytes256) Marshal() ([]byte, error) {
 // must already have the vector's length.
 func UnmarshalByteVector(dst []byte, data []byte) error {
 	if len(data) != len(dst) {
-		return fmt.Errorf("ssz: expected %d bytes, got %d", len(dst), len(data))
+		return fmt.Errorf("%w: expected %d bytes, got %d", ErrLengthMismatch, len(dst), len(data))
 	}
 	copy(dst, data)
 	return nil
@@ -149,7 +149,7 @@ type UnmarshalerPtr[T any] interface {
 func UnmarshalVector[T any, PT UnmarshalerPtr[T]](dst []T, data []byte, elemSize uint64) error {
 	want := uint64(len(dst)) * elemSize
 	if uint64(len(data)) != want {
-		return fmt.Errorf("ssz: expected %d bytes, got %d", want, len(data))
+		return fmt.Errorf("%w: expected %d bytes, got %d", ErrLengthMismatch, want, len(data))
 	}
 	for i := range dst {
 		start := uint64(i) * elemSize
@@ -164,7 +164,7 @@ func UnmarshalVector[T any, PT UnmarshalerPtr[T]](dst []T, data []byte, elemSize
 // result never aliases data.
 func UnmarshalByteList(data []byte, maxBytes uint64) ([]byte, error) {
 	if uint64(len(data)) > maxBytes {
-		return nil, fmt.Errorf("ssz: byte list exceeds max %d bytes, got %d", maxBytes, len(data))
+		return nil, fmt.Errorf("%w: max %d bytes, got %d", ErrListTooLong, maxBytes, len(data))
 	}
 	return copyBytes(data), nil
 }
@@ -191,7 +191,7 @@ func UnmarshalContainer(v any, data []byte) error {
 		size, fixed := fs.FixedSize()
 		if fixed {
 			if fixedOffset+size > uint64(len(data)) {
-				return fmt.Errorf("ssz: container truncated at field %d", i)
+				return fmt.Errorf("%w: container truncated at field %d", ErrTruncated, i)
 			}
 			u, ok := field.Addr().Interface().(Unmarshaler)
 			if !ok {
@@ -204,7 +204,7 @@ func UnmarshalContainer(v any, data []byte) error {
 			continue
 		}
 		if fixedOffset+offsetSize > uint64(len(data)) {
-			return fmt.Errorf("ssz: container truncated reading offset for field %d", i)
+			return fmt.Errorf("%w: container truncated reading offset for field %d", ErrTruncated, i)
 		}
 		offset := uint64(binary.LittleEndian.Uint32(data[fixedOffset : fixedOffset+offsetSize]))
 		variables = append(variables, variableField{idx: i, offset: offset})
@@ -212,22 +212,19 @@ func UnmarshalContainer(v any, data []byte) error {
 	}
 
 	if len(variables) == 0 && fixedOffset != uint64(len(data)) {
-		return fmt.Errorf("ssz: expected %d bytes, got %d", fixedOffset, len(data))
+		return fmt.Errorf("%w: expected %d bytes, got %d", ErrLengthMismatch, fixedOffset, len(data))
 	}
 	if len(variables) > 0 && variables[0].offset != fixedOffset {
-		return fmt.Errorf("ssz: first offset %d does not match fixed part length %d", variables[0].offset, fixedOffset)
+		return fmt.Errorf("%w: first offset %d does not match fixed part length %d", ErrInvalidOffset, variables[0].offset, fixedOffset)
 	}
 
 	for j, vf := range variables {
-		if vf.offset > uint64(len(data)) {
-			return fmt.Errorf("ssz: offset %d for field %d out of range (len %d)", vf.offset, vf.idx, len(data))
-		}
 		end := uint64(len(data))
 		if j+1 < len(variables) {
 			end = variables[j+1].offset
 		}
 		if end < vf.offset || end > uint64(len(data)) {
-			return fmt.Errorf("ssz: invalid offset table at field %d", vf.idx)
+			return fmt.Errorf("%w: at field %d", ErrInvalidOffset, vf.idx)
 		}
 		field := val.Field(vf.idx)
 		u, ok := field.Addr().Interface().(Unmarshaler)
@@ -243,7 +240,7 @@ func UnmarshalContainer(v any, data []byte) error {
 
 func (v *Uint64) Unmarshal(data []byte) error {
 	if len(data) != uint64Size {
-		return fmt.Errorf("ssz: Uint64 expects %d bytes, got %d", uint64Size, len(data))
+		return fmt.Errorf("%w: expected %d bytes, got %d", ErrLengthMismatch, uint64Size, len(data))
 	}
 	*v = Uint64(binary.LittleEndian.Uint64(data))
 	return nil

@@ -10,9 +10,9 @@ import (
 
 	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
 	"gopkg.in/yaml.v3"
-)
 
-const vectorsDir = "../testdata/bls-12-381-tests"
+	"github.com/Lepsina/pipo/internal/spectest"
+)
 
 type vector struct {
 	Input  any `yaml:"input"`
@@ -46,7 +46,7 @@ func loadVectors(dir, group string) ([]namedVector, error) {
 
 func forEachVector(t *testing.T, group string, fn func(t *testing.T, v vector)) {
 	t.Helper()
-	vs, err := loadVectors(vectorsDir, group)
+	vs, err := loadVectors(spectest.BLSTestsDir(t), group)
 	if err != nil || len(vs) == 0 {
 		t.Fatalf("no vectors found for %s: %v", group, err)
 	}
@@ -76,7 +76,7 @@ func unhex(t *testing.T, x any) []byte {
 
 func seedFromField(f *testing.F, group, field string) {
 	f.Helper()
-	vs, err := loadVectors(vectorsDir, group)
+	vs, err := loadVectors(spectest.BLSTestsDir(f), group)
 	if err != nil {
 		f.Fatalf("load vectors for %s: %v", group, err)
 	}
@@ -387,7 +387,7 @@ func FuzzSignatureFromBytes(f *testing.F) {
 }
 
 func FuzzVerify(f *testing.F) {
-	vs, err := loadVectors(vectorsDir, "verify")
+	vs, err := loadVectors(spectest.BLSTestsDir(f), "verify")
 	if err != nil {
 		f.Fatalf("load vectors: %v", err)
 	}
@@ -422,7 +422,7 @@ func FuzzVerify(f *testing.F) {
 }
 
 func FuzzFastAggregateVerify(f *testing.F) {
-	vs, err := loadVectors(vectorsDir, "fast_aggregate_verify")
+	vs, err := loadVectors(spectest.BLSTestsDir(f), "fast_aggregate_verify")
 	if err != nil {
 		f.Fatalf("load vectors: %v", err)
 	}
